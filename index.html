@@ -2,157 +2,215 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>googleのやつ</title>
+  <title>lets battle</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     body {
-      margin: 0;
-      background-color: #e0f7fa;
+      background-color: #fff;
       font-family: sans-serif;
-      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin: 0;
+      padding: 20px;
     }
 
-    #game {
+    #counter {
+      margin-bottom: 10px;
+      font-size: 1.2em;
+    }
+
+    #container {
       position: relative;
-      width: 100%;
-      height: 250px;
-      background-color: #ffffffcc;
-      border-bottom: 4px solid #333;
+      width: 500px;
+      height: 400px;
+      border: 2px solid #ccc;
+      background-color: #f9f9f9;
+      overflow: hidden;
     }
 
     .emoji {
       position: absolute;
-      font-size: 40px;
-      transition: bottom 0.2s;
+      font-size: 24px;
+      pointer-events: none;
     }
 
-    #dino {
-      left: 50px;
-      bottom: 0;
-    }
-
-    #cactus {
-      bottom: 0;
-    }
-
-    #bird {
-      bottom: 120px;
-    }
-
-    .jump {
-      animation: jump 0.5s ease-out;
-    }
-
-    .duck {
-      transform: scaleY(0.5);
-    }
-
-    @keyframes jump {
-      0%   { bottom: 0; }
-      50%  { bottom: 80px; }
-      100% { bottom: 0; }
-    }
-
-    #message {
-      text-align: center;
+    #chartContainer {
+      width: 600px;
+      height: 300px;
       margin-top: 20px;
-      font-size: 1.4em;
-      color: #333;
     }
   </style>
 </head>
 <body>
-
-  <div id="game">
-    <div id="dino" class="emoji">🦖</div>
-    <div id="cactus" class="emoji">🌵</div>
-    <div id="bird" class="emoji">🐦</div>
+  <div id="counter">🪨: 15　📄: 15　✂️: 15</div>
+  <div id="container"></div>
+  <div id="chartContainer">
+    <canvas id="countChart"></canvas>
   </div>
-  <div id="message">スペースでジャンプ ↓でしゃがむ</div>
 
   <script>
-    const dino = document.getElementById("dino");
-    const cactus = document.getElementById("cactus");
-    const bird = document.getElementById("bird");
-    const message = document.getElementById("message");
+    const container = document.getElementById("container");
+    const counter = document.getElementById("counter");
 
-    let isJumping = false;
-    let isDucking = false;
-    let isGameOver = false;
+    const EMOJIS = ["🪨", "📄", "✂️"];
+    const BEATS = {
+      "🪨": "✂️",
+      "📄": "🪨",
+      "✂️": "📄"
+    };
 
-    document.addEventListener("keydown", (event) => {
-      if (isGameOver) return;
+    const entities = [];
+    const history = { rock: [], paper: [], scissors: [], frame: [] };
+    let frameCount = 0;
 
-      if (event.code === "Space" && !isJumping) {
-        dino.classList.remove("duck");
-        dino.classList.add("jump");
-        isJumping = true;
-        setTimeout(() => {
-          dino.classList.remove("jump");
-          isJumping = false;
-        }, 500);
-      }
+    const chartCtx = document.getElementById('countChart').getContext('2d');
+    const chart = new Chart(chartCtx, {
+      type: 'line',
+      data: {
+        labels: history.frame,
+        datasets: [
+          {
+            label: '🪨',
+            data: history.rock,
+            borderColor: 'gray',
+            fill: false
+          },
+          {
+            label: '📄',
+            data: history.paper,
+            borderColor: 'green',
+            fill: false
+          },
+          {
+            label: '✂️',
+            data: history.scissors,
+            borderColor: 'red',
+            fill: false
+          }
+        ]
+      },
+      options: {
+  animation: false,
+  scales: {
+    x: {
+      display: false,
+      grid: { display: false }
+    },
+    y: {
+      display: true,
+      min: 0,
+      max: 45,
+      grid: { display: false },
+      title: { display: false }
+    }
+  },
+  plugins: {
+    legend: { labels: { font: { size: 14 } } }
+  }
+}
 
-      if (event.code === "ArrowDown" && !isJumping) {
-        dino.classList.add("duck");
-        isDucking = true;
-      }
     });
 
-    document.addEventListener("keyup", (event) => {
-      if (event.code === "ArrowDown") {
-        dino.classList.remove("duck");
-        isDucking = false;
+   function createEntity(type) {
+  const el = document.createElement("div");
+  el.className = "emoji";
+  el.textContent = type;
+  container.appendChild(el);
+
+  let x, y, safe;
+  do {
+    safe = true;
+    x = Math.random() * (container.clientWidth - 24);
+    y = Math.random() * (container.clientHeight - 24);
+    for (const e of entities) {
+      const dx = e.x - x;
+      const dy = e.y - y;
+      if (Math.abs(dx) < 24 && Math.abs(dy) < 24) {
+        safe = false;
+        break;
       }
-    });
+    }
+  } while (!safe);
 
-    function moveObstacle(obstacle, bottomHeight, detectHeightFn, delay = 0) {
-      let left = window.innerWidth + delay;
-      obstacle.style.left = left + "px";
-      obstacle.style.display = "block";
-      obstacle.style.bottom = bottomHeight + "px";
+  const dx = (Math.random() - 0.5) * 1;
+  const dy = (Math.random() - 0.5) * 1;
+  entities.push({ type, el, x, y, dx, dy });
+}
 
-      const interval = setInterval(() => {
-        if (isGameOver) {
-          clearInterval(interval);
-          return;
-        }
+    function updateCounters() {
+      const counts = { "🪨": 0, "📄": 0, "✂️": 0 };
+      for (const e of entities) counts[e.type]++;
+      counter.textContent = `🪨: ${counts["🪨"]}　📄: ${counts["📄"]}　✂️: ${counts["✂️"]}`;
 
-        left -= 10;
-        obstacle.style.left = left + "px";
+      // グラフ更新用履歴追加
+      frameCount++;
+      history.frame.push(frameCount);
+      history.rock.push(counts["🪨"]);
+      history.paper.push(counts["📄"]);
+      history.scissors.push(counts["✂️"]);
 
-        const dinoBottom = parseInt(getComputedStyle(dino).getPropertyValue("bottom"));
-        const dinoTop = dinoBottom + (isDucking ? 20 : 40);
+      if (history.frame.length > 200) {
+        history.frame.shift();
+        history.rock.shift();
+        history.paper.shift();
+        history.scissors.shift();
+      }
 
-        if (left <= 90 && left >= 50 && detectHeightFn(dinoBottom, dinoTop)) {
-          gameOver();
-          clearInterval(interval);
-        }
-
-        if (left < -50) {
-          clearInterval(interval);
-          const nextDelay = 2000 + Math.random() * 3000; // 2～5秒後に再登場
-          setTimeout(() => {
-            moveObstacle(obstacle, bottomHeight, detectHeightFn, 0);
-          }, nextDelay);
-        }
-      }, 20);
+      chart.update();
     }
 
-    function gameOver() {
-      message.textContent = "ゲームオーバー！F5で再スタート";
-      isGameOver = true;
-      cactus.style.display = "none";
-      bird.style.display = "none";
+    let speedMultiplier = 1.5;
+    let timeElapsed = 0;
+
+    function moveEntities() {
+      for (const e of entities) {
+        e.x += e.dx * speedMultiplier;
+        e.y += e.dy * speedMultiplier;
+
+        if (e.x < 0 || e.x > container.clientWidth - 24) e.dx *= -1;
+        if (e.y < 0 || e.y > container.clientHeight - 24) e.dy *= -1;
+
+        e.el.style.left = `${e.x}px`;
+        e.el.style.top = `${e.y}px`;
+      }
     }
 
-    // 最初の出現をずらす
-    setTimeout(() => {
-      moveObstacle(cactus, 0, (bottom, top) => bottom < 40); // サボテン：ジャンプで回避
-    }, 1000); // サボテンは1秒後に開始
+    function checkCollisions() {
+      for (let i = 0; i < entities.length; i++) {
+        for (let j = i + 1; j < entities.length; j++) {
+          const a = entities[i], b = entities[j];
+          if (Math.abs(a.x - b.x) < 24 && Math.abs(a.y - b.y) < 24) {
+            if (a.type === b.type) continue;
+            if (BEATS[a.type] === b.type) {
+              b.type = a.type;
+              b.el.textContent = a.type;
+            } else if (BEATS[b.type] === a.type) {
+              a.type = b.type;
+              a.el.textContent = b.type;
+            }
+          }
+        }
+      }
+    }
 
-    setTimeout(() => {
-      moveObstacle(bird, 120, (bottom, top) => top > 100); // 鳥：しゃがみで回避
-    }, 3000); // 鳥は3秒後に開始（ずらし）
+    function animate() {
+      timeElapsed++;
+      speedMultiplier = 1.5 + timeElapsed / 300;
+      moveEntities();
+      checkCollisions();
+      updateCounters();
+      requestAnimationFrame(animate);
+    }
+
+    for (let i = 0; i < 15; i++) {
+      createEntity("🪨");
+      createEntity("📄");
+      createEntity("✂️");
+    }
+
+    animate();
   </script>
 </body>
 </html>
+
