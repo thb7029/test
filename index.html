@@ -2,29 +2,157 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>私の最初のホームページ</title>
+  <title>googleのやつ</title>
   <style>
     body {
+      margin: 0;
       background-color: #e0f7fa;
-      color: #333333;
-      font-family: "Segoe UI", sans-serif;
-      margin: 40px;
+      font-family: sans-serif;
+      overflow: hidden;
     }
-    h1 {
-      font-size: 2em;
-      border-bottom: 2px solid #333333;
-      padding-bottom: 10px;
+
+    #game {
+      position: relative;
+      width: 100%;
+      height: 250px;
+      background-color: #ffffffcc;
+      border-bottom: 4px solid #333;
     }
-    p {
-      font-size: 1.2em;
-      line-height: 1.6;
+
+    .emoji {
+      position: absolute;
+      font-size: 40px;
+      transition: bottom 0.2s;
+    }
+
+    #dino {
+      left: 50px;
+      bottom: 0;
+    }
+
+    #cactus {
+      bottom: 0;
+    }
+
+    #bird {
+      bottom: 120px;
+    }
+
+    .jump {
+      animation: jump 0.5s ease-out;
+    }
+
+    .duck {
+      transform: scaleY(0.5);
+    }
+
+    @keyframes jump {
+      0%   { bottom: 0; }
+      50%  { bottom: 80px; }
+      100% { bottom: 0; }
+    }
+
+    #message {
+      text-align: center;
+      margin-top: 20px;
+      font-size: 1.4em;
+      color: #333;
     }
   </style>
 </head>
 <body>
-  <h1>ようこそ!</h1>
-  <p><strong>名前:</strong> 市川大悟</p>
-  <p><strong>学部学科:</strong> 理工学部 電子工学科</p>
-  <p><strong>趣味:</strong> 音楽鑑賞、サイクリング、プログラミング</p>
+
+  <div id="game">
+    <div id="dino" class="emoji">🦖</div>
+    <div id="cactus" class="emoji">🌵</div>
+    <div id="bird" class="emoji">🐦</div>
+  </div>
+  <div id="message">スペースでジャンプ ↓でしゃがむ</div>
+
+  <script>
+    const dino = document.getElementById("dino");
+    const cactus = document.getElementById("cactus");
+    const bird = document.getElementById("bird");
+    const message = document.getElementById("message");
+
+    let isJumping = false;
+    let isDucking = false;
+    let isGameOver = false;
+
+    document.addEventListener("keydown", (event) => {
+      if (isGameOver) return;
+
+      if (event.code === "Space" && !isJumping) {
+        dino.classList.remove("duck");
+        dino.classList.add("jump");
+        isJumping = true;
+        setTimeout(() => {
+          dino.classList.remove("jump");
+          isJumping = false;
+        }, 500);
+      }
+
+      if (event.code === "ArrowDown" && !isJumping) {
+        dino.classList.add("duck");
+        isDucking = true;
+      }
+    });
+
+    document.addEventListener("keyup", (event) => {
+      if (event.code === "ArrowDown") {
+        dino.classList.remove("duck");
+        isDucking = false;
+      }
+    });
+
+    function moveObstacle(obstacle, bottomHeight, detectHeightFn, delay = 0) {
+      let left = window.innerWidth + delay;
+      obstacle.style.left = left + "px";
+      obstacle.style.display = "block";
+      obstacle.style.bottom = bottomHeight + "px";
+
+      const interval = setInterval(() => {
+        if (isGameOver) {
+          clearInterval(interval);
+          return;
+        }
+
+        left -= 10;
+        obstacle.style.left = left + "px";
+
+        const dinoBottom = parseInt(getComputedStyle(dino).getPropertyValue("bottom"));
+        const dinoTop = dinoBottom + (isDucking ? 20 : 40);
+
+        if (left <= 90 && left >= 50 && detectHeightFn(dinoBottom, dinoTop)) {
+          gameOver();
+          clearInterval(interval);
+        }
+
+        if (left < -50) {
+          clearInterval(interval);
+          const nextDelay = 2000 + Math.random() * 3000; // 2～5秒後に再登場
+          setTimeout(() => {
+            moveObstacle(obstacle, bottomHeight, detectHeightFn, 0);
+          }, nextDelay);
+        }
+      }, 20);
+    }
+
+    function gameOver() {
+      message.textContent = "ゲームオーバー！F5で再スタート";
+      isGameOver = true;
+      cactus.style.display = "none";
+      bird.style.display = "none";
+    }
+
+    // 最初の出現をずらす
+    setTimeout(() => {
+      moveObstacle(cactus, 0, (bottom, top) => bottom < 40); // サボテン：ジャンプで回避
+    }, 1000); // サボテンは1秒後に開始
+
+    setTimeout(() => {
+      moveObstacle(bird, 120, (bottom, top) => top > 100); // 鳥：しゃがみで回避
+    }, 3000); // 鳥は3秒後に開始（ずらし）
+  </script>
 </body>
 </html>
