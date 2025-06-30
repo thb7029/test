@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>波のシミュレーション</title>
+  <style>
+    body, html {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background-color: #fff;
+    }
+    canvas {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+<canvas id="waveCanvas"></canvas>
+
+<script>
+  const canvas = document.getElementById('waveCanvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+
+  const waves = [];
+  let isMouseDown = false;
+  let holdStart = 0;
+
+  class Wave {
+    constructor(x, y, amp) {
+      this.x = x;
+      this.y = y;
+      this.amp = amp;
+      this.radius = 0;
+      this.alpha = 1;
+    }
+    update() {
+      this.radius += 2;
+      this.alpha -= 0.01;
+    }
+    draw() {
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(0, 120, 255, ${this.alpha})`;
+      ctx.lineWidth = this.amp;
+      ctx.stroke();
+    }
+    isAlive() {
+      return this.alpha > 0;
+    }
+  }
+
+  function animate() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    waves.forEach(w => {
+      w.update();
+      w.draw();
+    });
+    for (let i = waves.length - 1; i >= 0; i--) {
+      if (!waves[i].isAlive()) waves.splice(i, 1);
+    }
+    requestAnimationFrame(animate);
+  }
+
+  canvas.addEventListener('mousedown', e => {
+    isMouseDown = true;
+    holdStart = Date.now();
+  });
+
+  canvas.addEventListener('mouseup', e => {
+    if (isMouseDown) {
+      isMouseDown = false;
+      const duration = Date.now() - holdStart;
+      const amp = Math.min(10, duration / 100); // 最大振幅10
+      waves.push(new Wave(e.clientX, e.clientY, amp));
+    }
+  });
+
+  animate();
+</script>
+</body>
+</html>
